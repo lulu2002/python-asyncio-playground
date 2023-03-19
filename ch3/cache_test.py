@@ -77,12 +77,48 @@ class ObserverB(Observer):
         await asyncio.sleep(1)
 
 
+class Analyzer:
+
+    def __init__(self, cache: Cache, observable: Observable):
+        self.cache = cache
+        self.observable = observable
+
+    async def start(self):
+        while True:
+            await self.observable.update(-1)
+            await asyncio.sleep(1.1)
+
+
+class AnalyzerSubscriber(Observer):
+
+    def __init__(self, cache: Cache):
+        self.cache = cache
+
+    async def on_update(self, value):
+        print(f"AnalyzerSubscriber - get cache value: {self.cache.get()}")
+        await asyncio.sleep(1)
+
+
 cache = Cache()
 device = Device()
-observable = Observable()
-reader = Reader(cache, device, observable)
+reader_observable = Observable()
+reader = Reader(cache, device, reader_observable)
 
-observable.add_observer(ObserverA())
-observable.add_observer(ObserverB())
+reader_observable.add_observer(ObserverA())
+reader_observable.add_observer(ObserverB())
 
-asyncio.run(reader.start())
+analyzer_observable = Observable()
+analyzer = Analyzer(cache, analyzer_observable)
+analyzer_subscriber = AnalyzerSubscriber(cache)
+analyzer_observable.add_observer(analyzer_subscriber)
+
+
+async def main():
+    tasks = [
+        asyncio.create_task(reader.start()),
+        asyncio.create_task(analyzer.start())
+    ]
+    await asyncio.gather(*tasks)
+
+
+asyncio.run(main())
